@@ -21,9 +21,7 @@ import numpy as np
 import math
 import cv2
 import matplotlib.pyplot as plt
-from PIL import Image
 import copy
-
 
 ## Add current working directory to path
 sys.path.append(os.getcwd())
@@ -40,27 +38,26 @@ import student.objdet_eval as eval
 import misc.objdet_tools as tools 
 from misc.helpers import save_object_to_file, load_object_from_file, make_exec_list
 
+## Tracking
 from student.filter import Filter
 from student.trackmanagement import Trackmanagement
 from student.association import Association
 from student.measurements import Sensor, Measurement
 from misc.evaluation import plot_tracks, plot_rmse, make_movie
 import misc.params as params 
-
+ 
 ##################
 ## Set parameters and perform initializations
 
 ## Select Waymo Open Dataset file and frame numbers
 data_filename = 'training_segment-1005081002024129653_5313_150_5333_150_with_camera_labels.tfrecord' # Sequence 1
-#data_filename = 'training_segment-10072231702153043603_5725_000_5745_000_with_camera_labels.tfrecord' # Sequence 2
-#data_filename = 'training_segment-10963653239323173269_1924_000_1944_000_with_camera_labels.tfrecord' # Sequence 3
-show_only_frames = [50, 150] # show only frames in interval for debugging
+# data_filename = 'training_segment-10072231702153043603_5725_000_5745_000_with_camera_labels.tfrecord' # Sequence 2
+# data_filename = 'training_segment-10963653239323173269_1924_000_1944_000_with_camera_labels.tfrecord' # Sequence 3
+show_only_frames = [0, 1] # show only frames in interval for debugging
 
 ## Prepare Waymo Open Dataset file for loading
 data_fullpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'dataset', data_filename) # adjustable path in case this script is called from another working directory
-model = "fpn-resnet"
-sequence = "1"
-results_fullpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'results/' + model + '/results_sequence_' + sequence + '_' + "resnet")
+results_fullpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'results')
 datafile = WaymoDataFileReader(data_fullpath)
 datafile_iter = iter(datafile)  # initialize dataset iterator
 
@@ -81,15 +78,16 @@ lidar = None # init lidar sensor object
 camera = None # init camera sensor object
 np.random.seed(10) # make random values predictable
 
+# ## Selective execution and visualization
+# exec_detection = ['bev_from_pcl', 'detect_objects', 'validate_object_labels', 'measure_detection_performance'] # options are 'bev_from_pcl', 'detect_objects', 'validate_object_labels', 'measure_detection_performance'; options not in the list will be loaded from file
+# exec_tracking = [] # options are 'perform_tracking'
+# exec_visualization = [] # options are 'show_range_image', 'show_bev', 'show_pcl', 'show_labels_in_image', 'show_objects_and_labels_in_bev', 'show_objects_in_bev_labels_in_camera', 'show_tracks', 'show_detection_performance', 'make_tracking_movie'
 ## Selective execution and visualization
-exec_data = ['pcl_from_rangeimage']
-exec_detection = ['bev_from_pcl', 'detect_objects', 'validate_object_labels', \
-                  'measure_detection_performance'] 
-# options are 'bev_from_pcl', 'detect_objects', 'validate_object_labels', 'measure_detection_performance'; options not in the list will be loaded from file
-
+exec_detection = [] # options are 'bev_from_pcl', 'detect_objects', 'validate_object_labels', 'measure_detection_performance'; options not in the list will be loaded from file
 exec_tracking = [] # options are 'perform_tracking'
-exec_visualization = ['show_detection_performance', 'show_objects_and_labels_in_bev'] # options are 'show_range_image', 'show_bev', 'show_pcl', 'show_labels_in_image', 'show_objects_and_labels_in_bev', 'show_objects_in_bev_labels_in_camera', 'show_tracks', 'show_detection_performance', 'make_tracking_movie'
-# exec_list = make_exec_list(exec_data, exec_detection, exec_tracking, exec_visualization)
+exec_visualization = ['show_range_image'] # options are 'show_range_image', 'show_bev', 'show_pcl', 'show_labels_in_image', 'show_objects_and_labels_in_bev', 'show_objects_in_bev_labels_in_camera', 'show_tracks', 'show_detection_performance', 'make_tracking_movie'
+
+
 exec_list = make_exec_list(exec_detection, exec_tracking, exec_visualization)
 vis_pause_time = 0 # set pause time between frames in ms (0 = stop between frames until key is pressed)
 
@@ -100,6 +98,7 @@ vis_pause_time = 0 # set pause time between frames in ms (0 = stop between frame
 cnt_frame = 0 
 all_labels = []
 det_performance_all = [] 
+np.random.seed(0) # make random values predictable
 if 'show_tracks' in exec_list:    
     fig, (ax2, ax) = plt.subplots(1,2) # init track plot
 
@@ -125,7 +124,6 @@ while True:
         camera_name = dataset_pb2.CameraName.FRONT
         lidar_calibration = waymo_utils.get(frame.context.laser_calibrations, lidar_name)        
         camera_calibration = waymo_utils.get(frame.context.camera_calibrations, camera_name)
-
         if 'load_image' in exec_list:
             image = tools.extract_front_camera_image(frame) 
 
@@ -155,7 +153,11 @@ while True:
                 detections = det.detect_objects(lidar_bev, model_det, configs_det)
             else:
                 print('loading detected objects from result file')
-                detections = load_object_from_file(results_fullpath, data_filename, 'detections_' + configs_det.arch + '_' + str(configs_det.conf_thresh), cnt_frame)
+                # load different data for final project vs. mid-term project
+                if 'perform_tracking' in exec_list:
+                    detections = load_object_from_file(results_fullpath, data_filename, 'detections', cnt_frame)
+                else:
+                    detections = load_object_from_file(results_fullpath, data_filename, 'detections_' + configs_det.arch + '_' + str(configs_det.conf_thresh), cnt_frame)
 
         ## Validate object labels
         if 'validate_object_labels' in exec_list:
@@ -171,7 +173,11 @@ while True:
             det_performance = eval.measure_detection_performance(detections, frame.laser_labels, valid_label_flags, configs_det.min_iou)     
         else:
             print('loading detection performance measures from file')
-            det_performance = load_object_from_file(results_fullpath, data_filename, 'det_performance_' + "fpn_resnet" + '_' + str(configs_det.conf_thresh), cnt_frame)   
+            # load different data for final project vs. mid-term project
+            if 'perform_tracking' in exec_list:
+                det_performance = load_object_from_file(results_fullpath, data_filename, 'det_performance', cnt_frame)
+            else:
+                det_performance = load_object_from_file(results_fullpath, data_filename, 'det_performance_' + configs_det.arch + '_' + str(configs_det.conf_thresh), cnt_frame)   
 
         det_performance_all.append(det_performance) # store all evaluation results in a list for performance assessment at the end
         
@@ -216,8 +222,10 @@ while True:
             # preprocess lidar detections
             meas_list_lidar = []
             for detection in detections:
-                meas_list_lidar = lidar.generate_measurement(cnt_frame, detection[1:], meas_list_lidar)
-                
+                # check if measurement lies inside specified range
+                if detection[1] > configs_det.lim_x[0] and detection[1] < configs_det.lim_x[1] and detection[2] > configs_det.lim_y[0] and detection[2] < configs_det.lim_y[1]:
+                    meas_list_lidar = lidar.generate_measurement(cnt_frame, detection[1:], meas_list_lidar)
+
             # preprocess camera detections
             meas_list_cam = []
             for label in frame.camera_labels[0].labels:
@@ -274,11 +282,11 @@ while True:
 
 ## Evaluate object detection performance
 if 'show_detection_performance' in exec_list:
-    eval.compute_performance_stats(det_performance_all)
+    eval.compute_performance_stats(det_performance_all, configs_det)
 
 ## Plot RMSE for all tracks
 if 'show_tracks' in exec_list:
-    plot_rmse(manager, all_labels)
+    plot_rmse(manager, all_labels, configs_det)
 
 ## Make movie from tracking results    
 if 'make_tracking_movie' in exec_list:
