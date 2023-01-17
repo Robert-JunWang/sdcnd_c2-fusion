@@ -143,7 +143,7 @@ def bev_from_pcl(lidar_pcl, configs):
     
 
     # step 4 : visualize point-cloud using the function show_pcl from a previous task
-    #show_pcl(lidar_pcl_cpy)
+    # show_pcl(lidar_pcl_cpy)
     
     #######
     ####### ID_S2_EX1 END #######     
@@ -180,7 +180,7 @@ def bev_from_pcl(lidar_pcl, configs):
     intensity_map  = intensity_map / (percentile_99-percentile_1) 
 
     ## step 5 : temporarily visualize the intensity map using OpenCV to make sure that vehicles separate well from the background
-    #cv2.imwrite("Intensity_map.jpeg", (intensity_map*255).astype(np.uint8))
+    cv2.imwrite("bev_intensity.jpg", (intensity_map*255).astype(np.uint8))
 
     #######
     ####### ID_S2_EX2 END ####### 
@@ -201,7 +201,7 @@ def bev_from_pcl(lidar_pcl, configs):
                                                                         (configs.lim_z[1] - configs.lim_z[0])
     
     ## step 3 : temporarily visualize the height map using OpenCV to make sure that vehicles separate well from the background
-    #cv2.imwrite("Height_map.jpeg", (height_map*255).astype(np.uint8))
+    cv2.imwrite("bev_height.jpg", (height_map*255).astype(np.uint8))
 
 
     #######
@@ -211,7 +211,7 @@ def bev_from_pcl(lidar_pcl, configs):
     density_map = np.zeros((configs.bev_height + 1, configs.bev_width + 1))
     normalizedCounts = np.minimum(1.0, np.log(counts + 1) / np.log(64)) 
     density_map[np.int_(lidar_top_pcl[:, 0]), np.int_(lidar_top_pcl[:, 1])] = normalizedCounts
-    #cv2.imwrite("density_map.jpeg", (density_map*255).astype(np.uint8))
+    cv2.imwrite("bev_density.jpg", (density_map*255).astype(np.uint8))
 
     # assemble 3-channel bev-map from individual maps
     bev_map = np.zeros((3, configs.bev_height, configs.bev_width))
@@ -224,7 +224,7 @@ def bev_from_pcl(lidar_pcl, configs):
     bev_maps = np.zeros((1, s1, s2, s3))
     bev_maps[0] = bev_map
 
-    #cv2.imwrite("bev.jpeg", (bev_map.transpose(1,2,0)*255).astype(np.uint8))
+    cv2.imwrite("bev_final.jpg", (bev_map.transpose(1,2,0)*255).astype(np.uint8))
     bev_maps = torch.from_numpy(bev_maps)  # create tensor from birds-eye view
     input_bev_maps = bev_maps.to(configs.device, non_blocking=True).float()
     return input_bev_maps

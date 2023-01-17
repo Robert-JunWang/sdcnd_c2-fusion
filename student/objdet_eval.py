@@ -87,7 +87,8 @@ def measure_detection_performance(detections, labels, labels_valid, min_iou=0.5)
             true_positives += 1
 
 
-
+    print('ious:',ious)
+    print('center_devs:',center_devs)
     ####### ID_S4_EX2 START #######     
     #######
     print("student task ID_S4_EX2")
@@ -111,12 +112,14 @@ def measure_detection_performance(detections, labels, labels_valid, min_iou=0.5)
     
     pos_negs = [all_positives, true_positives, false_negatives, false_positives]
     det_performance = [ious, center_devs, pos_negs]
-        
+
+    print('det_performance:',det_performance)
+
     return det_performance
 
 
 # evaluate object detection performance based on all frames
-def compute_performance_stats(det_performance_all):
+def compute_performance_stats(det_performance_all, configs_det):
     # extract elements
     ious = []
     center_devs = []

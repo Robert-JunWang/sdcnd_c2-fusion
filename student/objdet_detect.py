@@ -48,12 +48,13 @@ def load_configs_model(model_name='fpn_resnet', configs=None):
     
     # set parameters according to model type
     if model_name == "darknet":
-        configs.model_path = os.path.join(parent_path, 'tools', 'objdet_models')
+        configs.model_path = os.path.join(parent_path, 'tools', 'objdet_models', 'darknet')
         configs.pretrained_filename = os.path.join(configs.model_path, 'pretrained', 'complex_yolov4_mse_loss.pth')
         configs.arch = 'darknet'
         configs.batch_size = 4
         configs.cfgfile = os.path.join(configs.model_path, 'config', 'complex_yolov4.cfg')
 
+        configs.conf_thresh = 0.5
         configs.distributed = False
         configs.img_size = 608
         configs.nms_thresh = 0.4
@@ -104,7 +105,7 @@ def load_configs_model(model_name='fpn_resnet', configs=None):
 
     else:
         raise ValueError("Error: Invalid model name")
-    
+
     configs.min_iou = 0.5
     
     # GPU vs. CPU
@@ -182,6 +183,8 @@ def detect_objects(input_bev_maps, model, configs):
 
     # deactivate autograd engine during test to reduce memory usage and speed up computations
     with torch.no_grad():  
+
+        # perform inference
         outputs = model(input_bev_maps)
 
         # decode model output into target object format
@@ -213,10 +216,14 @@ def detect_objects(input_bev_maps, model, configs):
             
             detections = detections.cpu().numpy().astype(np.float32)
             detections = post_processing(detections, configs)
+            if detections:
+                detections = detections[0][1]
+
             #######
             ####### ID_S3_EX1-5 END #######     
 
-            
+    print("student task ID_S3_EX1")   
+    print(detections)     
 
     ####### ID_S3_EX2 START #######     
     #######
@@ -225,9 +232,10 @@ def detect_objects(input_bev_maps, model, configs):
     objects = [] 
     
     ## step 1 : check whether there are any detections
-    for det in detections:
+    if detections is not None:
         ## step 2 : loop over all detections
-        for obj in det[1]:
+        for obj in detections:
+
             id_, bev_x, bev_y, z, h, bev_w, bev_l, yaw = obj
         
             ## step 2 : loop over all detections
@@ -246,6 +254,6 @@ def detect_objects(input_bev_maps, model, configs):
         
     #######
     ####### ID_S3_EX2 START #######   
-    
+    print(objects) 
     return objects    
 
